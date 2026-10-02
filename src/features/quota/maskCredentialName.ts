@@ -44,6 +44,19 @@ function maskSegment(segment: string): string {
   return `${localPrefix}${maskToken(user)}@${maskedLabels.join('.')}${extension}`;
 }
 
+/** Drop the short random id CLIProxyAPI inserts after the provider prefix:
+ * `codex-ae5d455f-tom@lab.dev-pro.json` → `codex-tom@lab.dev-pro.json`.
+ * Only applies when the hex id is followed by an e-mail, so other names stay intact.
+ */
+const PROVIDER_HASH = /^([a-z][a-z0-9]*)-[0-9a-f]{8}-(?=[^@\s]+@)/i;
+
+export function stripCredentialHash(name: string): string {
+  return name
+    .split(SEGMENT_SEPARATOR)
+    .map((segment) => segment.replace(PROVIDER_HASH, '$1-'))
+    .join(SEGMENT_SEPARATOR);
+}
+
 export function maskCredentialName(name: string): string {
   if (!name.includes('@')) return name;
   return name.split(SEGMENT_SEPARATOR).map(maskSegment).join(SEGMENT_SEPARATOR);

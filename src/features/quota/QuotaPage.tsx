@@ -30,7 +30,7 @@ import { QuotaLedger } from './components/QuotaLedger';
 import { QuotaSummaryCards } from './components/QuotaSummaryCards';
 import { buildTimelineLane, laneHasWindow } from './quotaTimelineModel';
 import { describeCredential, summarizeProvider } from './summary';
-import { maskCredentialName } from './maskCredentialName';
+import { maskCredentialName, stripCredentialHash } from './maskCredentialName';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   QUOTA_PAGE_SIZE,
@@ -55,7 +55,7 @@ import {
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
-import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
+import { useQuotaAutoLoad } from './hooks/useQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import {
@@ -235,7 +235,10 @@ export function QuotaPage() {
 
   // One masking decision for every surface: cards, ledger rows and timeline lanes.
   const maskName = useCallback(
-    (name: string) => (showEmails ? name : maskCredentialName(name)),
+    (name: string) => {
+      const short = stripCredentialHash(name);
+      return showEmails ? short : maskCredentialName(short);
+    },
     [showEmails]
   );
   const entryDisplayName = useCallback(
@@ -331,7 +334,7 @@ export function QuotaPage() {
     }
   }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
 
-  useDevinQuotaAutoLoad(
+  useQuotaAutoLoad(
     pageItems,
     disableControls ||
       loading ||
