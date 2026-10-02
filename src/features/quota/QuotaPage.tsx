@@ -21,18 +21,25 @@ import { useNow } from '@/hooks/useNow';
 import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
-import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { getQuotaCacheKey, getQuotaDisplayName } from '@/utils/quota/identity';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaTimeline } from './components/QuotaTimeline';
+import { QuotaLedger } from './components/QuotaLedger';
+import { QuotaSummaryCards } from './components/QuotaSummaryCards';
+import { buildTimelineLane, laneHasWindow } from './quotaTimelineModel';
+import { describeCredential, summarizeProvider } from './summary';
+import { maskCredentialName } from './maskCredentialName';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   QUOTA_PAGE_SIZE,
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
+  QUOTA_VIEW_MODES,
   type QuotaSortMode,
   type QuotaTabId,
+  type QuotaViewMode,
 } from './constants';
 import {
   buildTabCounts,
@@ -40,6 +47,7 @@ import {
   classifyQuotaFiles,
   filterEntriesByTab,
   filterEntriesBySearch,
+  groupLedgerEntries,
   paginate,
   sortQuotaEntries,
   type QuotaFileEntry,
@@ -50,17 +58,18 @@ import type { QuotaProviderType } from './providers/types';
 import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
-import { readQuotaUiState, writeQuotaUiState } from './uiState';
+import {
+  readQuotaShowEmails,
+  readQuotaUiState,
+  readQuotaViewMode,
+  writeQuotaShowEmails,
+  writeQuotaUiState,
+  writeQuotaViewMode,
+} from './uiState';
 import styles from './QuotaPage.module.scss';
 
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
 const SKELETON_CARD_COUNT = 6;
-
-/**
- * Existing providers display filenames; Devin's card and timeline share an
- * identity-aware display label. Keep the filename fallback stable for memoization.
- */
-const displayNameFor = (name: string) => name;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -74,6 +83,8 @@ export function QuotaPage() {
   const [sortMode, setSortMode] = useState<QuotaSortMode>(
     () => readQuotaUiState()?.sortMode ?? 'default'
   );
+  const [viewMode, setViewMode] = useState<QuotaViewMode>(readQuotaViewMode);
+  const [showEmails, setShowEmails] = useState<boolean>(readQuotaShowEmails);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -205,6 +216,48 @@ export function QuotaPage() {
     [t]
   );
 
+  const viewOptions = useMemo(
+    () =>
+      QUOTA_VIEW_MODES.map((mode) => ({ value: mode, label: t(`quota_management.view_${mode}`) })),
+    [t]
+  );
+
+  const handleViewModeChange = useCallback((next: string) => {
+    setViewMode(next as QuotaViewMode);
+    writeQuotaViewMode(next as QuotaViewMode);
+  }, []);
+
+  const handleToggleShowEmails = useCallback(() => {
+    const next = !showEmails;
+    setShowEmails(next);
+    writeQuotaShowEmails(next);
+  }, [showEmails]);
+
+  // One masking decision for every surface: cards, ledger rows and timeline lanes.
+  const maskName = useCallback(
+    (name: string) => (showEmails ? name : maskCredentialName(name)),
+    [showEmails]
+  );
+  const entryDisplayName = useCallback(
+    (entry: QuotaFileEntry) => maskName(getQuotaDisplayName(entry.file)),
+    [maskName]
+  );
+
+  // Summary cards follow the provider tab (not the search box): they describe
+  // the fleet, and a search narrowing it to one row would make "of 500%" lie.
+  const summaryNow = useNow();
+  const providerSummaries = useMemo(() => {
+    const tabEntries = filterEntriesByTab(entries, tab);
+    return QUOTA_TAB_ORDER.flatMap((type) => {
+      const ofType = tabEntries.filter((entry) => entry.type === type);
+      if (ofType.length === 0) return [];
+      const descriptions = ofType.map((entry) =>
+        describeCredential(type, quotaByType[type][getQuotaCacheKey(entry.file)], t)
+      );
+      return [summarizeProvider(type, descriptions, summaryNow, t)];
+    });
+  }, [entries, tab, quotaByType, summaryNow, t]);
+
   const { loadedCount, attentionCount } = useMemo(() => {
     let loaded = 0;
     let attention = 0;
@@ -312,6 +365,23 @@ export function QuotaPage() {
 
   const isEmpty = !loading && filteredEntries.length === 0;
 
+  // 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。
+  const timelineHasLanes = useMemo(
+    () =>
+      viewMode === 'timeline' &&
+      pageItems.some((entry) =>
+        laneHasWindow(
+          buildTimelineLane({
+            name: getQuotaCacheKey(entry.file),
+            displayName: entry.file.name,
+            provider: entry.type,
+            quota: getQuota(entry),
+          })
+        )
+      ),
+    [viewMode, pageItems, getQuota]
+  );
+
   return (
     <div className={styles.page} ref={revealRef}>
       <QuotaHeader
@@ -320,6 +390,8 @@ export function QuotaPage() {
         attentionCount={attentionCount}
         refreshing={loading || batchLoading}
         disableControls={disableControls}
+        showEmails={showEmails}
+        onToggleShowEmails={handleToggleShowEmails}
         onRefreshAll={handleRefreshAll}
       />
 
@@ -333,7 +405,20 @@ export function QuotaPage() {
             resolvedTheme={resolvedTheme}
             onChange={handleTabChange}
           />
+          <div className={styles.viewSwitch}>
+            <Select
+              value={viewMode}
+              options={viewOptions}
+              onChange={handleViewModeChange}
+              ariaLabel={t('quota_management.view_label')}
+              size="sm"
+            />
+          </div>
         </div>
+
+        {!loading && (
+          <QuotaSummaryCards summaries={providerSummaries} resolvedTheme={resolvedTheme} />
+        )}
 
         <div className={styles.toolbar}>
           <div className={styles.search}>
@@ -379,7 +464,13 @@ export function QuotaPage() {
           </div>
         )}
 
-        {loading ? (
+        {loading && viewMode === 'ledger' ? (
+          <div className={styles.ledgerSkeleton} aria-hidden="true">
+            {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+              <Skeleton key={index} height={72} rounded={10} />
+            ))}
+          </div>
+        ) : loading ? (
           <div className={styles.grid} aria-hidden="true">
             {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
               <Skeleton key={index} height={168} rounded={14} />
@@ -413,12 +504,48 @@ export function QuotaPage() {
               )
             }
           />
+        ) : viewMode === 'ledger' ? (
+          <QuotaLedger
+            groups={groupLedgerEntries(pageItems, sortMode === 'default')}
+            quotaFor={getQuota}
+            displayNameFor={entryDisplayName}
+            resolvedTheme={resolvedTheme}
+            canUseActions={canUseActions}
+            resettingQuotaName={resettingQuotaName}
+            onRefresh={(entry) => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+            onReset={(entry) => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+          />
+        ) : viewMode === 'timeline' ? (
+          timelineHasLanes ? (
+            <QuotaTimeline
+              entries={pageItems}
+              quotaFor={getQuota}
+              displayNameFor={maskName}
+              resolvedTheme={resolvedTheme}
+            />
+          ) : (
+            <EmptyState
+              title={t('quota_management.timeline_empty_title')}
+              description={t('quota_management.timeline_empty_desc')}
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRefreshAll}
+                  disabled={disableControls || batchLoading}
+                >
+                  {t('quota_management.refresh_all_credentials')}
+                </Button>
+              }
+            />
+          )
         ) : (
           <div className={styles.grid}>
             {pageItems.map((entry, index) => (
               <QuotaCard
                 key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
                 entry={entry}
+                displayName={entryDisplayName(entry)}
                 quota={getQuota(entry)}
                 resolvedTheme={resolvedTheme}
                 canRefresh={canUseActions && !entry.file.disabled}
@@ -458,14 +585,6 @@ export function QuotaPage() {
             </Button>
           </div>
         )}
-
-        {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-        <QuotaTimeline
-          entries={pageItems}
-          quotaFor={getQuota}
-          displayNameFor={displayNameFor}
-          resolvedTheme={resolvedTheme}
-        />
       </section>
     </div>
   );

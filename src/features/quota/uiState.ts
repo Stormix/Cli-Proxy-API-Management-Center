@@ -1,8 +1,10 @@
 import {
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
+  QUOTA_VIEW_MODES,
   type QuotaSortMode,
   type QuotaTabId,
+  type QuotaViewMode,
 } from './constants';
 
 /** 额度页 UI 偏好：会话级持久化（sessionStorage），跨会话不携带。 */
@@ -12,15 +14,22 @@ export type QuotaUiState = {
 };
 
 const QUOTA_UI_STATE_KEY = 'quotaPage.uiState';
+/** Display preferences outlive the session — they describe the user, not the visit. */
+const QUOTA_VIEW_KEY = 'quota.view';
+const QUOTA_SHOW_EMAILS_KEY = 'quota.showEmails';
 
 const QUOTA_TAB_ID_SET = new Set<string>(['all', ...QUOTA_TAB_ORDER]);
 const QUOTA_SORT_MODE_SET = new Set<string>(QUOTA_SORT_MODES);
+const QUOTA_VIEW_MODE_SET = new Set<string>(QUOTA_VIEW_MODES);
 
 export const isQuotaTabId = (value: unknown): value is QuotaTabId =>
   typeof value === 'string' && QUOTA_TAB_ID_SET.has(value);
 
 export const isQuotaSortMode = (value: unknown): value is QuotaSortMode =>
   typeof value === 'string' && QUOTA_SORT_MODE_SET.has(value);
+
+export const isQuotaViewMode = (value: unknown): value is QuotaViewMode =>
+  typeof value === 'string' && QUOTA_VIEW_MODE_SET.has(value);
 
 export const readQuotaUiState = (): QuotaUiState | null => {
   if (typeof window === 'undefined') return null;
@@ -54,3 +63,33 @@ export const writeQuotaUiState = (state: QuotaUiState) => {
     // ignore
   }
 };
+
+const readLocal = (key: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeLocal = (key: string, value: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
+export const readQuotaViewMode = (): QuotaViewMode => {
+  const raw = readLocal(QUOTA_VIEW_KEY);
+  return isQuotaViewMode(raw) ? raw : 'ledger';
+};
+
+export const writeQuotaViewMode = (view: QuotaViewMode) => writeLocal(QUOTA_VIEW_KEY, view);
+
+export const readQuotaShowEmails = (): boolean => readLocal(QUOTA_SHOW_EMAILS_KEY) === 'true';
+
+export const writeQuotaShowEmails = (show: boolean) =>
+  writeLocal(QUOTA_SHOW_EMAILS_KEY, show ? 'true' : 'false');

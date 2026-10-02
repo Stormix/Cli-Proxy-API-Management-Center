@@ -1,0 +1,321 @@
+@use '../../../styles/mixins' as *;
+
+/* ============================================================
+ * 账本视图：provider 分组标题 + 发丝线分隔的密排行。
+ * 行 = [身份列 | 固定宽水位列 ×N | 动作列]；遥测 mono + tabular-nums。
+ * ============================================================ */
+
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.groupCount {
+  font-family: $font-mono;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ---------- 行 ---------- */
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-color);
+  min-width: 0;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* ---------- 身份列 ---------- */
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.fileName {
+  font-family: $font-mono;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+  @include text-ellipsis;
+}
+
+.planLine {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  min-width: 0;
+}
+
+.plan {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.planDot {
+  color: var(--text-quaternary);
+}
+
+.planMeta {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 水位列 ---------- */
+
+.meters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  min-width: 0;
+}
+
+.meter {
+  flex: 0 1 230px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.meterHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.meterLabel {
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  @include text-ellipsis;
+}
+
+.meterPercent {
+  flex-shrink: 0;
+  font-family: $font-mono;
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.meterReset {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  font-family: $font-mono;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-quaternary);
+  min-width: 0;
+}
+
+.meterResetRelative {
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.meterResetDot {
+  color: var(--text-quaternary);
+}
+
+.resetsAvailable {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.resetsCount {
+  font-family: $font-mono;
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.resetsLabel {
+  color: var(--text-tertiary);
+}
+
+.resetsAbsolute {
+  @include text-ellipsis;
+  max-width: 100%;
+}
+
+.empty {
+  font-family: $font-mono;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  padding: 6px 0;
+}
+
+/* idle：整列即点击加载落点（与卡片 idleBody 同族，更扁） */
+.idle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: $font-mono;
+  font-size: 11.5px;
+  transition:
+    border-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out);
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.skeleton {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  width: 100%;
+
+  > * {
+    flex: 0 1 230px;
+    min-width: 180px;
+  }
+}
+
+/* ---------- 动作列 ---------- */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding-top: 2px;
+  min-width: 0;
+}
+
+/* 安静文字动作：无描边，hover 才着墨 */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  border-radius: 6px;
+  transition:
+    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out);
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .idle:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color));
+    border-style: solid;
+    color: var(--text-secondary);
+  }
+
+  .action:hover:not(:disabled) {
+    color: var(--text-primary);
+  }
+}
+
+@include mobile {
+  .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+
+  .meter {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idle,
+  .action {
+    transition: none;
+  }
+
+  .action:active:not(:disabled) {
+    transform: none;
+  }
+}

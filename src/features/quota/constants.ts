@@ -23,3 +23,12 @@ export type QuotaSortMode = (typeof QUOTA_SORT_MODES)[number];
 
 /** 与 useRevealGroup 的 GROUP_MAX_TOTAL 一致：卡片级联总预算 360ms。 */
 export const CARD_ENTRANCE_BUDGET_MS = 360;
+
+/** 列表视图：ledger = 密排行（默认）；cards = 卡网格；timeline = 「额度窗口」时间线。 */
+export const QUOTA_VIEW_MODES = ['ledger', 'cards', 'timeline'] as const;
+
+export type QuotaViewMode = (typeof QUOTA_VIEW_MODES)[number];
+
+/** 水位条三档阈值（剩余 %）：≥70 绿 / ≥30 琥珀 / <30 红。QuotaMeter 与汇总分段条共用。 */
+export const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
+export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = 30;

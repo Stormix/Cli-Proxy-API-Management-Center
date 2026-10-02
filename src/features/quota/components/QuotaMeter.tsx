@@ -8,9 +8,15 @@
 
 import type { CSSProperties } from 'react';
 import type { QuotaClassMap } from '../types';
+import { QUOTA_PROGRESS_HIGH_THRESHOLD, QUOTA_PROGRESS_MEDIUM_THRESHOLD } from '../constants';
 
-export const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
-export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = 30;
+/** Fill class for a remaining percent; null (unknown) paints nothing visible. */
+function resolveMeterFillClass(percent: number | null, classes: QuotaClassMap): string {
+  if (percent === null) return classes.quotaBarFillMedium;
+  if (percent >= QUOTA_PROGRESS_HIGH_THRESHOLD) return classes.quotaBarFillHigh;
+  if (percent >= QUOTA_PROGRESS_MEDIUM_THRESHOLD) return classes.quotaBarFillMedium;
+  return classes.quotaBarFillLow;
+}
 
 export interface QuotaMeterProps {
   percent: number | null;
@@ -21,14 +27,7 @@ export interface QuotaMeterProps {
 export function QuotaMeter({ percent, classes, index }: QuotaMeterProps) {
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const normalized = percent === null ? null : clamp(percent, 0, 100);
-  const fillClass =
-    normalized === null
-      ? classes.quotaBarFillMedium
-      : normalized >= QUOTA_PROGRESS_HIGH_THRESHOLD
-        ? classes.quotaBarFillHigh
-        : normalized >= QUOTA_PROGRESS_MEDIUM_THRESHOLD
-          ? classes.quotaBarFillMedium
-          : classes.quotaBarFillLow;
+  const fillClass = resolveMeterFillClass(normalized, classes);
   const widthPercent = Math.round((normalized ?? 0) * 100) / 100;
   const style: CSSProperties & { '--meter-index'?: number } = { width: `${widthPercent}%` };
   if (index !== undefined) {

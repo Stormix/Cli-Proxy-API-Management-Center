@@ -146,3 +146,24 @@ export function paginate<T>(items: T[], page: number, pageSize: number): QuotaPa
     totalPages,
   };
 }
+
+export interface QuotaLedgerGroup {
+  /** Null for an ungrouped (globally sorted) list. */
+  provider: QuotaProviderType | null;
+  entries: QuotaFileEntry[];
+}
+
+/** Group a page of entries by provider, preserving in-group order. */
+export function groupLedgerEntries(
+  entries: QuotaFileEntry[],
+  grouped: boolean
+): QuotaLedgerGroup[] {
+  if (!grouped) return entries.length === 0 ? [] : [{ provider: null, entries }];
+  const groups = new Map<QuotaProviderType, QuotaFileEntry[]>();
+  for (const entry of entries) {
+    const bucket = groups.get(entry.type);
+    if (bucket) bucket.push(entry);
+    else groups.set(entry.type, [entry]);
+  }
+  return Array.from(groups, ([provider, items]) => ({ provider, entries: items }));
+}
